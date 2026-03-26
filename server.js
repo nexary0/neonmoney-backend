@@ -29,7 +29,17 @@ app.post('/api/analyze', async (req, res) => {
         let title = titleMatch ? titleMatch[1] : "Unknown Product";
         title = title.replace('Buy ', '').replace('Online at Best Price', '').replace('- Amazon.in', '').replace('| Flipkart.com', '').trim();
 
-        // 2. EXTRACT PRICE
+        // 2. EXTRACT REAL PRODUCT IMAGE
+        let imageUrl = "https://via.placeholder.com/300x400?text=No+Image";
+        // Look for standard social media image tags or Amazon/Flipkart specific image tags
+        const imgMatch = html.match(/<meta[^>]*property="og:image"[^>]*content="([^"]+)"/i) || 
+                         html.match(/<img[^>]*id="landingImage"[^>]*src="([^"]+)"/i) ||
+                         html.match(/<img[^>]*class="_396cs4"[^>]*src="([^"]+)"/i);
+        if (imgMatch) {
+            imageUrl = imgMatch[1];
+        }
+
+        // 3. EXTRACT PRICE
         let currentPrice = 0;
         const amazonMatch = html.match(/<span class="a-price-whole">([^<]+)<\/span>/);
         if (amazonMatch) {
@@ -49,7 +59,7 @@ app.post('/api/analyze', async (req, res) => {
             title = title + " (Price Hidden)";
         }
 
-        // 3. GENERATE 90 DAYS OF HISTORY (For the 3 Month / Max tabs)
+        // 4. GENERATE 90 DAYS OF HISTORY
         const history = [];
         for(let i = 90; i >= 0; i--) {
             const d = new Date();
@@ -61,31 +71,32 @@ app.post('/api/analyze', async (req, res) => {
             });
         }
 
-        // 4. SMART BUDGET LINKS (These search pages never break!)
+        // 5. SMART BUDGET LINKS WITH REAL IMAGES!
         let suggestions = [];
         if (currentPrice > 80000) {
             suggestions = [
-                { name: "Premium Apple iPhones", price: "₹80,000+", store: "Amazon", link: "https://www.amazon.in/s?k=iphone" },
-                { name: "Samsung Galaxy Ultra", price: "₹1,00,000+", store: "Flipkart", link: "https://www.flipkart.com/search?q=samsung+galaxy+s24+ultra" },
-                { name: "Google Pixel Pro", price: "₹90,000+", store: "Flipkart", link: "https://www.flipkart.com/search?q=google+pixel+8+pro" }
+                { name: "iPhone 15 Pro", price: "₹1,37,990", store: "Amazon", link: "https://www.amazon.in/dp/B0CHX1W1XY", image: "https://m.media-amazon.com/images/I/81+GIkwqLIL._SX679_.jpg" },
+                { name: "Samsung S24 Ultra", price: "₹1,29,999", store: "Flipkart", link: "https://www.flipkart.com/search?q=samsung+s24+ultra", image: "https://m.media-amazon.com/images/I/71CXhVhpM0L._SX679_.jpg" },
+                { name: "Google Pixel 8 Pro", price: "₹1,06,999", store: "Flipkart", link: "https://www.flipkart.com/search?q=pixel+8+pro", image: "https://m.media-amazon.com/images/I/71BvAB5mb1L._SX679_.jpg" }
             ];
         } else if (currentPrice > 40000) {
             suggestions = [
-                { name: "Best Phones Under ₹50K", price: "₹40,000 - ₹50,000", store: "Amazon", link: "https://www.amazon.in/s?k=smartphones+under+50000" },
-                { name: "Flagship Killers", price: "₹40,000+", store: "Flipkart", link: "https://www.flipkart.com/search?q=smartphones+under+50000" },
-                { name: "Top Rated on Amazon", price: "Check Deals", store: "Amazon", link: "https://www.amazon.in/s?k=smartphones" }
+                { name: "iPhone 13", price: "₹52,999", store: "Amazon", link: "https://www.amazon.in/dp/B09G9HD6PD", image: "https://m.media-amazon.com/images/I/71xb2xkN5qL._SX679_.jpg" },
+                { name: "OnePlus 12R", price: "₹39,999", store: "Amazon", link: "https://www.amazon.in/dp/B0CQPFK2K9", image: "https://m.media-amazon.com/images/I/717Qo4MH97L._SX679_.jpg" },
+                { name: "Samsung S23 FE", price: "₹49,999", store: "Flipkart", link: "https://www.flipkart.com/search?q=samsung+s23+fe", image: "https://m.media-amazon.com/images/I/715e21oU8yL._SX679_.jpg" }
             ];
         } else {
             suggestions = [
-                { name: "Best 5G Phones Under ₹15K", price: "₹10,000 - ₹15,000", store: "Flipkart", link: "https://www.flipkart.com/search?q=5g+smartphones+under+15000" },
-                { name: "Top Phones Under ₹20K", price: "₹15,000 - ₹20,000", store: "Amazon", link: "https://www.amazon.in/s?k=smartphones+under+20000" },
-                { name: "Budget Bestsellers", price: "Under ₹12,000", store: "Flipkart", link: "https://www.flipkart.com/search?q=smartphones+under+12000" }
+                { name: "Poco X6 Neo 5G", price: "₹15,999", store: "Flipkart", link: "https://www.flipkart.com/search?q=poco+x6+neo", image: "https://m.media-amazon.com/images/I/51BqjK1oWVL._SX679_.jpg" },
+                { name: "Redmi 12 5G", price: "₹11,999", store: "Amazon", link: "https://www.amazon.in/dp/B0C74P8QDC", image: "https://m.media-amazon.com/images/I/71tCOhEigtL._SX679_.jpg" },
+                { name: "Moto Edge 40 Neo", price: "₹22,999", store: "Flipkart", link: "https://www.flipkart.com/search?q=moto+edge+40+neo", image: "https://m.media-amazon.com/images/I/71jG+e7roXL._SX679_.jpg" }
             ];
         }
 
         res.json({
             success: true,
             productName: title,
+            productImage: imageUrl,
             currentPrice: currentPrice,
             lowestPrice: Math.min(...history.map(h => h.price)),
             highestPrice: Math.max(...history.map(h => h.price)),
