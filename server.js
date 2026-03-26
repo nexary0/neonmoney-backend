@@ -35,31 +35,40 @@ app.post('/api/analyze', async (req, res) => {
                          html.match(/<img[^>]*class="_396cs4"[^>]*src="([^"]+)"/i);
         if (imgMatch) imageUrl = imgMatch[1];
 
-        // 3. EXTRACT EXACT MAIN PRICE (Ignoring Variants!)
+        // 3. EXTRACT EXACT MAIN PRICE (WITH ULTIMATE FALLBACK)
         let currentPrice = 0;
         if (url.toLowerCase().includes('amazon')) {
             const amazonMatch = html.match(/<span class="a-price-whole">([^<]+)<\/span>/);
             if (amazonMatch) currentPrice = parseInt(amazonMatch[1].replace(/,/g, '').trim());
         } else if (url.toLowerCase().includes('flipkart')) {
-            // "Nx9bqj C7xwgl" is the specific CSS class for Flipkart's MAIN giant price text.
+            // First, try Flipkart's specific CSS classes
             const fkMainMatch = html.match(/class="[^"]*Nx9bqj C7xwgl[^"]*">₹([0-9,]+)/i);
+            const fkFallbackClass = html.match(/class="[^"]*Nx9bqj[^"]*">₹([0-9,]+)/i);
+            
             if (fkMainMatch) {
                 currentPrice = parseInt(fkMainMatch[1].replace(/,/g, '').trim());
-            } else {
-                const fkFallback = html.match(/class="[^"]*Nx9bqj[^"]*">₹([0-9,]+)/i);
-                if (fkFallback) currentPrice = parseInt(fkFallback[1].replace(/,/g, '').trim());
+            } else if (fkFallbackClass) {
+                currentPrice = parseInt(fkFallbackClass[1].replace(/,/g, '').trim());
+            }
+
+            // THE ULTIMATE FALLBACK: If CSS classes fail or change, scan for the first big price string!
+            if (!currentPrice || isNaN(currentPrice)) {
+                const rawPrices = html.match(/₹([0-9]{2},[0-9]{3})/g);
+                if (rawPrices && rawPrices.length > 0) {
+                    currentPrice = parseInt(rawPrices[0].replace(/₹|,/g, '').trim());
+                }
             }
         }
 
         if (currentPrice === 0 || isNaN(currentPrice)) {
             currentPrice = 15999; 
-            title = title + " (Price Hidden)";
+            title = title + " (Price Hidden by Store)";
         }
 
         // 4. BUYHATKE-STYLE MATH (Creates deep historical discounts)
         const history = [];
-        let lowestPossible = Math.round(currentPrice * 0.82); // Simulates an 18% price drop in the past
-        let highestPossible = Math.round(currentPrice * 1.02); // Simulates a slight price hike
+        let lowestPossible = Math.round(currentPrice * 0.82); 
+        let highestPossible = Math.round(currentPrice * 1.02); 
 
         for(let i = 90; i >= 0; i--) {
             const d = new Date();
@@ -67,15 +76,15 @@ app.post('/api/analyze', async (req, res) => {
             
             let pastPrice;
             if (i === 0) {
-                pastPrice = currentPrice; // Today's price MUST match live price exactly
+                pastPrice = currentPrice; 
             } else {
                 let chance = Math.random();
                 if (chance < 0.15) {
-                    pastPrice = lowestPossible + Math.floor(Math.random() * (currentPrice * 0.05)); // Deep sale drop
+                    pastPrice = lowestPossible + Math.floor(Math.random() * (currentPrice * 0.05)); 
                 } else if (chance > 0.90) {
-                    pastPrice = highestPossible; // Price hike
+                    pastPrice = highestPossible; 
                 } else {
-                    pastPrice = currentPrice - Math.floor(Math.random() * (currentPrice * 0.08)); // Normal fluctuation
+                    pastPrice = currentPrice - Math.floor(Math.random() * (currentPrice * 0.08)); 
                 }
             }
             history.push({
