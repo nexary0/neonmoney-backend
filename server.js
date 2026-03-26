@@ -31,7 +31,6 @@ app.post('/api/analyze', async (req, res) => {
 
         // 2. EXTRACT REAL PRODUCT IMAGE
         let imageUrl = "https://via.placeholder.com/300x400?text=No+Image";
-        // Look for standard social media image tags or Amazon/Flipkart specific image tags
         const imgMatch = html.match(/<meta[^>]*property="og:image"[^>]*content="([^"]+)"/i) || 
                          html.match(/<img[^>]*id="landingImage"[^>]*src="([^"]+)"/i) ||
                          html.match(/<img[^>]*class="_396cs4"[^>]*src="([^"]+)"/i);
@@ -71,11 +70,11 @@ app.post('/api/analyze', async (req, res) => {
             });
         }
 
-        // 5. SMART BUDGET LINKS WITH REAL IMAGES!
+        // 5. SMART BUDGET LINKS WITH 100% REAL & FIXED IMAGES!
         let suggestions = [];
         if (currentPrice > 80000) {
             suggestions = [
-                { name: "iPhone 15 Pro", price: "₹1,37,990", store: "Amazon", link: "https://www.amazon.in/dp/B0CHX1W1XY", image: "https://m.media-amazon.com/images/I/81+GIkwqLIL._SX679_.jpg" },
+                { name: "iPhone 15 Pro", price: "₹1,37,990", store: "Amazon", link: "https://www.amazon.in/dp/B0CHX1W1XY", image: "https://m.media-amazon.com/images/I/81SigpJN1KL._SX679_.jpg" },
                 { name: "Samsung S24 Ultra", price: "₹1,29,999", store: "Flipkart", link: "https://www.flipkart.com/search?q=samsung+s24+ultra", image: "https://m.media-amazon.com/images/I/71CXhVhpM0L._SX679_.jpg" },
                 { name: "Google Pixel 8 Pro", price: "₹1,06,999", store: "Flipkart", link: "https://www.flipkart.com/search?q=pixel+8+pro", image: "https://m.media-amazon.com/images/I/71BvAB5mb1L._SX679_.jpg" }
             ];
@@ -83,13 +82,13 @@ app.post('/api/analyze', async (req, res) => {
             suggestions = [
                 { name: "iPhone 13", price: "₹52,999", store: "Amazon", link: "https://www.amazon.in/dp/B09G9HD6PD", image: "https://m.media-amazon.com/images/I/71xb2xkN5qL._SX679_.jpg" },
                 { name: "OnePlus 12R", price: "₹39,999", store: "Amazon", link: "https://www.amazon.in/dp/B0CQPFK2K9", image: "https://m.media-amazon.com/images/I/717Qo4MH97L._SX679_.jpg" },
-                { name: "Samsung S23 FE", price: "₹49,999", store: "Flipkart", link: "https://www.flipkart.com/search?q=samsung+s23+fe", image: "https://m.media-amazon.com/images/I/715e21oU8yL._SX679_.jpg" }
+                { name: "Samsung S23 FE", price: "₹49,999", store: "Flipkart", link: "https://www.flipkart.com/search?q=samsung+s23+fe", image: "https://m.media-amazon.com/images/I/71wLp1T1R4L._SX679_.jpg" }
             ];
         } else {
             suggestions = [
-                { name: "Poco X6 Neo 5G", price: "₹15,999", store: "Flipkart", link: "https://www.flipkart.com/search?q=poco+x6+neo", image: "https://m.media-amazon.com/images/I/51BqjK1oWVL._SX679_.jpg" },
+                { name: "Poco X6 Neo 5G", price: "₹15,999", store: "Flipkart", link: "https://www.flipkart.com/search?q=poco+x6+neo", image: "https://m.media-amazon.com/images/I/71YQ-P-XmPL._SX679_.jpg" },
                 { name: "Redmi 12 5G", price: "₹11,999", store: "Amazon", link: "https://www.amazon.in/dp/B0C74P8QDC", image: "https://m.media-amazon.com/images/I/71tCOhEigtL._SX679_.jpg" },
-                { name: "Moto Edge 40 Neo", price: "₹22,999", store: "Flipkart", link: "https://www.flipkart.com/search?q=moto+edge+40+neo", image: "https://m.media-amazon.com/images/I/71jG+e7roXL._SX679_.jpg" }
+                { name: "Moto Edge 40 Neo", price: "₹22,999", store: "Flipkart", link: "https://www.flipkart.com/search?q=moto+edge+40+neo", image: "https://m.media-amazon.com/images/I/61rQ3G0GkPL._SX679_.jpg" }
             ];
         }
 
