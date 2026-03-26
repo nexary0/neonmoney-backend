@@ -8,7 +8,7 @@ app.use(cors({ origin: '*' }));
 app.use(express.json());
 
 app.get('/', (req, res) => {
-    res.send('NeonMoney Backend Robot is Awake! 🤖');
+    res.send('NeonMoney Universal Backend Robot is Awake! 🤖');
 });
 
 app.post('/api/analyze', async (req, res) => {
@@ -16,6 +16,7 @@ app.post('/api/analyze', async (req, res) => {
     if (!url) return res.status(400).json({ success: false, error: 'Please provide a URL' });
 
     try {
+        // Mask the robot to look like a real browser
         const response = await fetch(url, {
             headers: { 
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -24,7 +25,7 @@ app.post('/api/analyze', async (req, res) => {
         });
         const html = await response.text();
         
-        // 1. EXTRACT TITLE
+        // 1. EXTRACT CLEAN TITLE
         const titleMatch = html.match(/<title>(.*?)<\/title>/i);
         let title = titleMatch ? titleMatch[1] : "Unknown Product";
         title = title.replace('Buy ', '').replace('Online at Best Price', '').replace('- Amazon.in', '').replace('| Flipkart.com', '').trim();
@@ -33,7 +34,7 @@ app.post('/api/analyze', async (req, res) => {
         let imageUrl = "https://placehold.co/400x500/f8fafc/0f172a?text=Product+Image";
         const imgMatches = [
             html.match(/<img[^>]*id="landingImage"[^>]*src="([^"]+)"/i), // Amazon Primary
-            html.match(/<img[^>]*id="imgBlkFront"[^>]*src="([^"]+)"/i), // Amazon Books/Alt
+            html.match(/<img[^>]*id="imgBlkFront"[^>]*src="([^"]+)"/i), // Amazon Books
             html.match(/<meta[^>]*property="og:image"[^>]*content="([^"]+)"/i), // Standard OG
             html.match(/<meta[^>]*name="twitter:image"[^>]*content="([^"]+)"/i), // Twitter Card
             html.match(/<img[^>]*class="[^"]*v2vws[^"]*"[^>]*src="([^"]+)"/i), // Flipkart New
@@ -41,14 +42,14 @@ app.post('/api/analyze', async (req, res) => {
         ];
 
         for (let m of imgMatches) {
-            // Pick the first match that isn't a tiny website icon (sprite)
+            // Pick the first match that isn't a tiny website icon
             if (m && m[1] && !m[1].includes('sprite') && !m[1].includes('data:image')) {
                 imageUrl = m[1];
                 break; 
             }
         }
 
-        // 3. EXTRACT EXACT MAIN PRICE
+        // 3. UNIVERSAL EXACT PRICE EXTRACTOR (Works for ₹99 to ₹9,99,999)
         let currentPrice = 0;
         const metaPriceMatch = html.match(/<meta[^>]*itemprop="price"[^>]*content="([0-9.]+)"/i);
         
@@ -64,13 +65,14 @@ app.post('/api/analyze', async (req, res) => {
             if (fkMainMatch) currentPrice = parseInt(fkMainMatch[1].replace(/,/g, '').trim());
         }
 
-        // Ultimate Fallback
+        // Ultimate Universal Fallback: Scans for ANY Rupee symbol followed by numbers and commas
         if (currentPrice === 0 || isNaN(currentPrice)) {
-            const rawPrices = html.match(/₹([0-9]{1,2},[0-9]{3})/g);
+            const rawPrices = html.match(/₹\s?([0-9]{1,3}(?:,[0-9]{2,3})*)/g);
             if (rawPrices && rawPrices.length > 0) {
-                currentPrice = parseInt(rawPrices[0].replace(/₹|,/g, '').trim());
+                // Grab the first valid price found on the page
+                currentPrice = parseInt(rawPrices[0].replace(/₹|,|\s/g, '').trim());
             } else {
-                currentPrice = 2999; 
+                currentPrice = 999; // Absolute worst-case safety net
                 title = title + " (Price Hidden)";
             }
         }
@@ -103,46 +105,40 @@ app.post('/api/analyze', async (req, res) => {
             });
         }
 
-        // 5. SMART CATEGORY SUGGESTIONS (Reads the title!)
-        let suggestions = [];
-        const t = title.toLowerCase();
+        // =========================================================
+        // 5. UNIVERSAL DYNAMIC SUGGESTION ENGINE (WORKS FOR ANYTHING)
+        // =========================================================
+        
+        // Grab the first 3-4 words of the product title to create a smart search query
+        let searchKeywords = title.replace(/[^a-zA-Z0-9 ]/g, "").split(' ').slice(0, 4).join(' ').trim();
+        if(!searchKeywords) searchKeywords = "Best Deals";
 
-        // If it detects Audio gear...
-        if (t.includes('headphone') || t.includes('earbud') || t.includes('airpod') || t.includes('earphone') || t.includes('noise') || t.includes('boat')) {
-            suggestions = [
-                { name: "Sony WH-1000XM5", price: "₹26,990", store: "Amazon", link: "https://www.amazon.in/dp/B09XS7JWHH", image: "https://m.media-amazon.com/images/I/61vJtKbAssL._SX522_.jpg" },
-                { name: "boAt Airdopes 141", price: "₹1,299", store: "Flipkart", link: "https://www.flipkart.com/search?q=boat+airdopes", image: "https://rukminim2.flixcart.com/image/312/312/xif0q/headphone/m/o/4/-original-imaghbjugwjdjw3x.jpeg" },
-                { name: "Apple AirPods Pro", price: "₹24,990", store: "Amazon", link: "https://www.amazon.in/dp/B0BDKD8DVD", image: "https://m.media-amazon.com/images/I/61SUj2aKoEL._SX522_.jpg" }
-            ];
-        // If it detects a Smartwatch...
-        } else if (t.includes('watch') || t.includes('smartwatch')) {
-            suggestions = [
-                { name: "Apple Watch Series 9", price: "₹41,999", store: "Amazon", link: "https://www.amazon.in/dp/B0CHX58MG6", image: "https://m.media-amazon.com/images/I/71XmYg2uNBL._SX522_.jpg" },
-                { name: "Noise ColorFit Pro", price: "₹2,499", store: "Flipkart", link: "https://www.flipkart.com/search?q=noise+smartwatch", image: "https://rukminim2.flixcart.com/image/312/312/xif0q/smartwatch/c/2/6/-original-imagxp8ujfcfh2yz.jpeg" },
-                { name: "Samsung Galaxy Watch 6", price: "₹34,999", store: "Amazon", link: "https://www.amazon.in/dp/B0CC9H577N", image: "https://m.media-amazon.com/images/I/61fW8A8jNIL._SX522_.jpg" }
-            ];
-        // Otherwise, fall back to the Phones logic based on budget!
-        } else {
-            if (currentPrice >= 60000) {
-                suggestions = [
-                    { name: "iPhone 15 Pro", price: "₹1,37,990", store: "Amazon", link: "https://www.amazon.in/dp/B0CHX1W1XY", image: "https://m.media-amazon.com/images/I/81SigpJN1KL._SX522_.jpg" },
-                    { name: "Samsung S24 Ultra", price: "₹1,29,999", store: "Flipkart", link: "https://www.flipkart.com/search?q=samsung+s24+ultra", image: "https://rukminim2.flixcart.com/image/312/312/xif0q/mobile/5/q/6/-original-imagy2kwttxzzwqy.jpeg" },
-                    { name: "Google Pixel 8 Pro", price: "₹1,06,999", store: "Flipkart", link: "https://www.flipkart.com/search?q=pixel+8+pro", image: "https://rukminim2.flixcart.com/image/312/312/xif0q/mobile/5/e/6/pixel-8-pro-ga04543-in-google-original-imagvgzhhqzmhqhz.jpeg" }
-                ];
-            } else if (currentPrice >= 25000) {
-                suggestions = [
-                    { name: "Motorola Edge 40 Neo", price: "₹22,999", store: "Flipkart", link: "https://www.flipkart.com/search?q=moto+edge+40+neo", image: "https://rukminim2.flixcart.com/image/312/312/xif0q/mobile/u/v/h/-original-imagxaqtzmqgtfen.jpeg" },
-                    { name: "Nothing Phone (2a)", price: "₹23,999", store: "Flipkart", link: "https://www.flipkart.com/search?q=nothing+phone+2a", image: "https://rukminim2.flixcart.com/image/312/312/xif0q/mobile/c/k/9/phone-2a-5g-a142-nothing-original-imagym2qzyzwcgwq.jpeg" },
-                    { name: "OnePlus Nord CE 4", price: "₹24,999", store: "Amazon", link: "https://www.amazon.in/dp/B0CX58L5Y5", image: "https://m.media-amazon.com/images/I/611bHmy1r2L._SX522_.jpg" }
-                ];
-            } else {
-                suggestions = [
-                    { name: "Poco X6 Neo 5G", price: "₹15,999", store: "Flipkart", link: "https://www.flipkart.com/search?q=poco+x6+neo", image: "https://rukminim2.flixcart.com/image/312/312/xif0q/mobile/n/x/r/-original-imagz7g9yqzyzqc5.jpeg" },
-                    { name: "Redmi 12 5G", price: "₹11,999", store: "Amazon", link: "https://www.amazon.in/dp/B0C74P8QDC", image: "https://m.media-amazon.com/images/I/71tCOhEigtL._SX522_.jpg" },
-                    { name: "Samsung Galaxy M14", price: "₹12,490", store: "Amazon", link: "https://www.amazon.in/search?q=samsung+m14", image: "https://m.media-amazon.com/images/I/818VqDSKp8L._SX522_.jpg" }
-                ];
+        let encodedAmazon = "https://www.amazon.in/s?k=" + encodeURIComponent(searchKeywords);
+        let encodedFlipkart = "https://www.flipkart.com/search?q=" + encodeURIComponent(searchKeywords);
+
+        let suggestions = [
+            { 
+                name: "Compare " + searchKeywords, 
+                price: "Check Amazon", 
+                store: "Amazon", 
+                link: encodedAmazon, 
+                image: imageUrl // Uses the exact product image!
+            },
+            { 
+                name: "Compare " + searchKeywords, 
+                price: "Check Flipkart", 
+                store: "Flipkart", 
+                link: encodedFlipkart, 
+                image: imageUrl 
+            },
+            { 
+                name: "Trending " + searchKeywords.split(' ')[0] + " Deals", 
+                price: "View Offers", 
+                store: "Top Stores", 
+                link: "https://www.amazon.in/gp/goldbox", // Universal deals link
+                image: imageUrl 
             }
-        }
+        ];
 
         res.json({
             success: true,
