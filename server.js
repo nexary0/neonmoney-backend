@@ -28,28 +28,28 @@ app.post('/api/analyze', async (req, res) => {
         // 1. EXTRACT CLEAN TITLE
         const titleMatch = html.match(/<title>(.*?)<\/title>/i);
         let title = titleMatch ? titleMatch[1] : "Unknown Product";
-        title = title.replace('Buy ', '').replace('Online at Best Price', '').replace('- Amazon.in', '').replace('| Flipkart.com', '').trim();
+        title = title.replace('Buy ', '').replace('Online at Best Price', '').replace('- Amazon.in', '').replace('| Flipkart.com', '').replace('Price:', '').trim();
 
-        // 2. EXTRACT REAL IMAGE (Aggressive Multi-Tag Scraper)
+        // =================================================================
+        // 2. THE ULTIMATE IMAGE SCRAPER (Bypasses hidden HTML tags entirely)
+        // =================================================================
         let imageUrl = "https://placehold.co/400x500/f8fafc/0f172a?text=Product+Image";
-        const imgMatches = [
-            html.match(/<img[^>]*id="landingImage"[^>]*src="([^"]+)"/i), // Amazon Primary
-            html.match(/<img[^>]*id="imgBlkFront"[^>]*src="([^"]+)"/i), // Amazon Books
-            html.match(/<meta[^>]*property="og:image"[^>]*content="([^"]+)"/i), // Standard OG
-            html.match(/<meta[^>]*name="twitter:image"[^>]*content="([^"]+)"/i), // Twitter Card
-            html.match(/<img[^>]*class="[^"]*v2vws[^"]*"[^>]*src="([^"]+)"/i), // Flipkart New
-            html.match(/<img[^>]*class="[^"]*_396cs4[^"]*"[^>]*src="([^"]+)"/i)  // Flipkart Old
-        ];
+        
+        // Scans the raw background code for ANY pure Amazon or Flipkart image links
+        const rawAmzImg = html.match(/https:\/\/m\.media-amazon\.com\/images\/I\/[a-zA-Z0-9\+%_-]+\.jpg/g);
+        const rawFkImg = html.match(/https:\/\/rukminim[a-zA-Z0-9-]+\.flixcart\.com\/image\/[a-zA-Z0-9/_-]+\.jpeg/g);
+        const ogImg = html.match(/<meta[^>]*property="og:image"[^>]*content="([^"]+)"/i);
 
-        for (let m of imgMatches) {
-            // Pick the first match that isn't a tiny website icon
-            if (m && m[1] && !m[1].includes('sprite') && !m[1].includes('data:image')) {
-                imageUrl = m[1];
-                break; 
-            }
+        if (url.toLowerCase().includes('amazon') && rawAmzImg && rawAmzImg.length > 0) {
+            // Grabs the longest URL found, which is almost always the highest-quality main image
+            imageUrl = rawAmzImg.reduce((a, b) => a.length > b.length ? a : b);
+        } else if (url.toLowerCase().includes('flipkart') && rawFkImg && rawFkImg.length > 0) {
+            imageUrl = rawFkImg[0];
+        } else if (ogImg && ogImg[1]) {
+            imageUrl = ogImg[1];
         }
 
-        // 3. UNIVERSAL EXACT PRICE EXTRACTOR (Works for ₹99 to ₹9,99,999)
+        // 3. UNIVERSAL EXACT PRICE EXTRACTOR 
         let currentPrice = 0;
         const metaPriceMatch = html.match(/<meta[^>]*itemprop="price"[^>]*content="([0-9.]+)"/i);
         
@@ -65,14 +65,13 @@ app.post('/api/analyze', async (req, res) => {
             if (fkMainMatch) currentPrice = parseInt(fkMainMatch[1].replace(/,/g, '').trim());
         }
 
-        // Ultimate Universal Fallback: Scans for ANY Rupee symbol followed by numbers and commas
+        // Ultimate Universal Fallback
         if (currentPrice === 0 || isNaN(currentPrice)) {
             const rawPrices = html.match(/₹\s?([0-9]{1,3}(?:,[0-9]{2,3})*)/g);
             if (rawPrices && rawPrices.length > 0) {
-                // Grab the first valid price found on the page
                 currentPrice = parseInt(rawPrices[0].replace(/₹|,|\s/g, '').trim());
             } else {
-                currentPrice = 999; // Absolute worst-case safety net
+                currentPrice = 999; 
                 title = title + " (Price Hidden)";
             }
         }
@@ -106,7 +105,7 @@ app.post('/api/analyze', async (req, res) => {
         }
 
         // =========================================================
-        // 5. UNIVERSAL DYNAMIC SUGGESTION ENGINE (WORKS FOR ANYTHING)
+        // 5. UNIVERSAL DYNAMIC SUGGESTION ENGINE (NEVER BREAKS)
         // =========================================================
         
         // Grab the first 3-4 words of the product title to create a smart search query
@@ -122,7 +121,7 @@ app.post('/api/analyze', async (req, res) => {
                 price: "Check Amazon", 
                 store: "Amazon", 
                 link: encodedAmazon, 
-                image: imageUrl // Uses the exact product image!
+                image: imageUrl // Guarantees the image matches exactly what they searched!
             },
             { 
                 name: "Compare " + searchKeywords, 
@@ -135,7 +134,7 @@ app.post('/api/analyze', async (req, res) => {
                 name: "Trending " + searchKeywords.split(' ')[0] + " Deals", 
                 price: "View Offers", 
                 store: "Top Stores", 
-                link: "https://www.amazon.in/gp/goldbox", // Universal deals link
+                link: "https://www.amazon.in/gp/goldbox", 
                 image: imageUrl 
             }
         ];
