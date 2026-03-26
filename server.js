@@ -29,61 +29,62 @@ app.post('/api/analyze', async (req, res) => {
         let title = titleMatch ? titleMatch[1] : "Unknown Product";
         title = title.replace('Buy ', '').replace('Online at Best Price', '').replace('- Amazon.in', '').replace('| Flipkart.com', '').trim();
 
-        // 2. EXTRACT REAL PRODUCT IMAGE
+        // 2. EXTRACT IMAGE
         let imageUrl = "https://via.placeholder.com/300x400?text=No+Image";
         const imgMatch = html.match(/<meta[^>]*property="og:image"[^>]*content="([^"]+)"/i) || 
-                         html.match(/<img[^>]*id="landingImage"[^>]*src="([^"]+)"/i) ||
                          html.match(/<img[^>]*class="_396cs4"[^>]*src="([^"]+)"/i);
-        if (imgMatch) {
-            imageUrl = imgMatch[1];
-        }
+        if (imgMatch) imageUrl = imgMatch[1];
 
-        // 3. EXTRACT PRICE (SMARTER TARGETING)
+        // 3. EXTRACT EXACT MAIN PRICE (Ignoring Variants!)
         let currentPrice = 0;
-        
-        // First, try to find hidden Schema/Meta tags which are the most accurate
-        const metaPriceMatch = html.match(/<meta[^>]*itemprop="price"[^>]*content="([0-9.]+)"/i);
-        
-        if (metaPriceMatch) {
-            currentPrice = parseInt(metaPriceMatch[1]);
-        } else if (url.toLowerCase().includes('amazon')) {
+        if (url.toLowerCase().includes('amazon')) {
             const amazonMatch = html.match(/<span class="a-price-whole">([^<]+)<\/span>/);
             if (amazonMatch) currentPrice = parseInt(amazonMatch[1].replace(/,/g, '').trim());
         } else if (url.toLowerCase().includes('flipkart')) {
-            // Flipkart: Hunt specifically for the main display price class (C7xwgl) to avoid variant buttons!
-            const flipkartMainMatch = html.match(/class="[^"]*Nx9bqj C7xwgl[^"]*">₹([0-9,]+)/) || 
-                                      html.match(/<div class="HLz_v1"[^>]*>.*?₹([0-9,]+)/) ||
-                                      html.match(/class="[^"]*Nx9bqj[^"]*">₹([0-9,]+)/);
-            if (flipkartMainMatch) {
-                currentPrice = parseInt(flipkartMainMatch[1].replace(/,/g, '').trim());
+            // "Nx9bqj C7xwgl" is the specific CSS class for Flipkart's MAIN giant price text.
+            const fkMainMatch = html.match(/class="[^"]*Nx9bqj C7xwgl[^"]*">₹([0-9,]+)/i);
+            if (fkMainMatch) {
+                currentPrice = parseInt(fkMainMatch[1].replace(/,/g, '').trim());
+            } else {
+                const fkFallback = html.match(/class="[^"]*Nx9bqj[^"]*">₹([0-9,]+)/i);
+                if (fkFallback) currentPrice = parseInt(fkFallback[1].replace(/,/g, '').trim());
             }
         }
 
         if (currentPrice === 0 || isNaN(currentPrice)) {
-            currentPrice = 15999; // Safety fallback
-            title = title + " (Price Hidden by Store)";
+            currentPrice = 15999; 
+            title = title + " (Price Hidden)";
         }
 
-        // 4. GENERATE REALISTIC HISTORY (Goes up AND down!)
+        // 4. BUYHATKE-STYLE MATH (Creates deep historical discounts)
         const history = [];
+        let lowestPossible = Math.round(currentPrice * 0.82); // Simulates an 18% price drop in the past
+        let highestPossible = Math.round(currentPrice * 1.02); // Simulates a slight price hike
+
         for(let i = 90; i >= 0; i--) {
             const d = new Date();
             d.setDate(d.getDate() - i);
             
-            // Random fluctuation between -5% and +15%
-            const fluctuation = (Math.random() * 0.20) - 0.05; 
-            let pastPrice = Math.round(currentPrice * (1 + fluctuation));
-            
-            // Ensure exactly today's price matches the live scraped price
-            if (i === 0) pastPrice = currentPrice;
-
+            let pastPrice;
+            if (i === 0) {
+                pastPrice = currentPrice; // Today's price MUST match live price exactly
+            } else {
+                let chance = Math.random();
+                if (chance < 0.15) {
+                    pastPrice = lowestPossible + Math.floor(Math.random() * (currentPrice * 0.05)); // Deep sale drop
+                } else if (chance > 0.90) {
+                    pastPrice = highestPossible; // Price hike
+                } else {
+                    pastPrice = currentPrice - Math.floor(Math.random() * (currentPrice * 0.08)); // Normal fluctuation
+                }
+            }
             history.push({
                 date: d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
                 price: pastPrice
             });
         }
 
-        // 5. SMART BUDGET LINKS WITH PERMANENT IMAGES
+        // 5. BUDGET RECOMMENDATIONS
         let suggestions = [];
         if (currentPrice >= 80000) {
             suggestions = [
