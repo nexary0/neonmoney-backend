@@ -6,7 +6,7 @@ const PORT = 3000;
 
 // Your secret keys (Passwords for the tools)
 const SCRAPER_API_KEY = '9cb9e46b99d412473b6a07f79408aabd'; // This gets the web pages
-const CLAUDE_API_KEY = 'PUT_YOUR_ANTHROPIC_API_KEY_HERE'; // <-- YOU MUST CHANGE THIS!
+const CLAUDE_API_KEY = 'AIzaSyCNDngP0U6cO2YDciEcHmFYjQ40Zk_T_Xo'; // <-- YOU MUST CHANGE THIS!
 
 app.use(cors({ origin: '*' }));
 app.use(express.json());
