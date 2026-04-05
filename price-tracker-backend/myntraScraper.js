@@ -3,14 +3,24 @@ const stealth = require('puppeteer-extra-plugin-stealth')();
 chromium.use(stealth);
 
 async function scrapeMyntra(url) {
-    const browser = await chromium.launch({ headless: true });
+    // We added the crucial Render-safe arguments here so it doesn't crash on the server!
+    const browser = await chromium.launch({
+        headless: true,
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-blink-features=AutomationControlled'
+        ]
+    });
+
     const context = await browser.newContext({
         userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
     });
     const page = await context.newPage();
 
     try {
-        console.log("Navigating to Myntra (SPEED BOOST MODE)...");
+        console.log("Navigating to Myntra (STEALTH + SPEED BOOST MODE)...");
 
         // ⚡ SPEED BOOST 1: Block heavy images, videos, and styling
         await page.route('**/*', (route) => {
@@ -33,7 +43,7 @@ async function scrapeMyntra(url) {
             let scrapedPrice = 0;
             let scrapedImage = '';
 
-            // 1. Get Title (Myntra usually splits Brand and Name)
+            // 1. Get Title
             const brandEl = document.querySelector('h1.pdp-title');
             const nameEl = document.querySelector('h1.pdp-name');
             if (brandEl && nameEl) {
