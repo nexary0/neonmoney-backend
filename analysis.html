@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Price History Analysis | NeonMoney</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #10B981;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 text-gray-800 p-8">
+
+    <div id="loading-overlay" class="text-center mt-20">
+        <div class="loader mb-4"></div>
+        <h2 class="text-xl font-bold">Analyzing Product...</h2>
+        <p class="text-gray-500">Asking the engine for real data.</p>
+    </div>
+
+    <div id="main-content" class="hidden max-w-4xl mx-auto bg-white p-6 rounded shadow">
+
+        <div class="flex gap-6 mb-8 border-b pb-6">
+            <div id="res-img-box" class="w-1/3 flex justify-center items-center bg-gray-100 rounded p-4 h-64"></div>
+            <div class="w-2/3">
+                <h1 id="res-title" class="text-2xl font-bold mb-2">Loading...</h1>
+                <div id="res-price" class="text-4xl font-extrabold text-green-600 mb-4">₹0</div>
+                <div id="res-verdict" class="text-xl font-bold mb-2">Verdict</div>
+                <p id="res-verdict-msg" class="text-gray-500 mb-4">Message</p>
+            </div>
+        </div>
+
+        <h2 class="text-xl font-bold mb-4">10 Similar Alternatives</h2>
+        <div id="similar-grid" class="grid grid-cols-2 md:grid-cols-5 gap-4">
+        </div>
+    </div>
+
+    <script>
+        // Use a test flipkart link automatically if you just double-click the file
+        const params = new URLSearchParams(window.location.search);
+        const productUrl = params.get('url') || "https://www.flipkart.com/apple-iphone-15-black-128-gb/p/itm6ac6485515ae4";
+
+        async function analyzeProduct() {
+            try {
+                // 🔴 THIS IS THE MAGIC LINK that connects the HTML to your server.js 🔴
+                const response = await fetch('http://localhost:3000/api/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: productUrl })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Hide loading, show content
+                    document.getElementById('loading-overlay').classList.add('hidden');
+                    document.getElementById('main-content').classList.remove('hidden');
+
+                    // Put the text on the screen
+                    document.getElementById('res-title').textContent = data.productName;
+                    document.getElementById('res-price').textContent = '₹' + data.currentPrice.toLocaleString('en-IN');
+                    document.getElementById('res-img-box').innerHTML = `<img src="${data.productImage}" class="max-h-full object-contain">`;
+
+                    const verdictEl = document.getElementById('res-verdict');
+                    verdictEl.textContent = data.recommendation;
+                    verdictEl.style.color = data.recommendationColor;
+                    document.getElementById('res-verdict-msg').textContent = data.recommendationMessage;
+
+                    // Draw the 10 similar products
+                    const grid = document.getElementById('similar-grid');
+                    grid.innerHTML = '';
+                    data.similarProducts.forEach(p => {
+                        grid.innerHTML += `
+                        <div class="border rounded p-2 text-center">
+                            <img src="${p.image}" class="h-20 mx-auto mb-2 object-contain">
+                            <div class="text-xs font-bold line-clamp-2 h-8">${p.name}</div>
+                            <div class="text-green-600 font-bold mt-1">₹${p.price}</div>
+                        </div>`;
+                    });
+                } else {
+                    alert("Engine failed: " + data.error);
+                }
+            } catch (err) {
+                alert("Could not connect to the Engine! Make sure server.js is running in the terminal.");
+            }
+        }
+
+        analyzeProduct();
+    </script>
+</body>
+
+</html>
